@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use derive_more::{Constructor, Display};
+use itertools::Itertools;
 
 #[derive(Display, Debug, PartialEq, Eq)]
 #[allow(dead_code)]
@@ -174,15 +175,19 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
 
                 let lexeme = format!("\"{}\"", literal);
 
-                chrs.next();
+                // BUG: chrs.next();
                 tokens.push(Token::new(TT::String, lexeme, Literal::Text(literal), line));
             }
             _ => {
+                println!("{} default branch", c);
                 if c.is_digit(10) {
                     let decimal: String = std::iter::once(c)
-                        .chain(chrs.by_ref().take_while(|&c| c != '.' && c.is_digit(10)))
+                        .chain(
+                            chrs.by_ref()
+                                .peeking_take_while(|&c| c != '.' && c.is_digit(10)),
+                        )
+                        .inspect(|c| println!("{:?}", c))
                         .collect();
-
                     match chrs.peek() {
                         None => {
                             tokens.push(Token::new_number(&decimal, line)?);
@@ -248,6 +253,27 @@ mod tests {
             Token::new(TokenType::LessEqual, String::from("<="), Literal::Null, 1),
             Token::new(TokenType::Less, String::from("<"), Literal::Null, 1),
             Token::new(TokenType::Dot, String::from("."), Literal::Null, 1),
+        ];
+        let tokens = scan_tokens(input).unwrap();
+        assert_eq!(want, tokens);
+    }
+
+    #[test]
+    fn test_number() {
+        let input = "123 123.23";
+        let want: Vec<Token> = vec![
+            Token::new(
+                TokenType::Number,
+                "123".to_string(),
+                Literal::Number(123.),
+                0,
+            ),
+            Token::new(
+                TokenType::Number,
+                "123.23".to_string(),
+                Literal::Number(123.23),
+                0,
+            ),
         ];
         let tokens = scan_tokens(input).unwrap();
         assert_eq!(want, tokens);
