@@ -51,7 +51,11 @@ enum TokenType {
     EOF,
 }
 
-type Literal = ();
+#[derive(Debug, Display)]
+enum Literal {
+    Null,
+    Text(String),
+}
 
 #[derive(Debug, Display, Constructor)]
 #[display("{} {} {:?}", token_type, lexeme, literal)]
@@ -82,11 +86,19 @@ impl<'a> Scanner<'a> {
         macro_rules! push_token {
             ($v: path, $c: ident) => {
                 self.tokens
-                    .push(Token::new($v, $c.to_string(), (), self.line))
+                    .push(Token::new($v, $c.to_string(), Literal::Null, self.line))
             };
             ($v: path, $c: literal) => {
                 self.tokens
-                    .push(Token::new($v, String::from($c), (), self.line))
+                    .push(Token::new($v, String::from($c), Literal::Null, self.line))
+            };
+            ($token_type: path, $text: ident, $lexeme: ident) => {
+                self.tokens.push(Token::new(
+                    $token_type,
+                    $text,
+                    Literal::Text($lexeme),
+                    self.line,
+                ))
             };
         }
 
@@ -158,7 +170,6 @@ impl<'a> Scanner<'a> {
                 '\t' => continue,
                 '\n' => self.line += 1,
                 '"' => {
-                    chrs.next();
                     let lexeme: String = chrs
                         .by_ref()
                         .inspect(|&c| {
@@ -173,10 +184,19 @@ impl<'a> Scanner<'a> {
                         return Err(anyhow!("Unterminated string."));
                     }
 
+                    let text = format!("\"{}\"", lexeme);
+
                     chrs.next();
-                    push_token!(TT::String, lexeme);
+                    push_token!(TT::String, text, lexeme);
                 }
-                _ => return Err(anyhow!("Unexpected character.")),
+                _ => {
+                    if c.is_digit(10) {
+                        let decimal: String = std::iter::once(c)
+                            .chain(chrs.take_while(|&c| c != '.' && c.is_digit(10)))
+                            .collect();
+                    }
+                    return Err(anyhow!("Unexpected character."));
+                }
             }
         }
 
