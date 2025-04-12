@@ -4,50 +4,50 @@ use derive_more::{Constructor, Display};
 #[derive(Display, Debug)]
 enum TokenType {
     // Single-character tokens.
-    LEFT_PAREN,
-    RIGHT_PAREN,
-    LEFT_BRACE,
-    RIGHT_BRACE,
-    COMMA,
-    DOT,
-    MINUS,
-    PLUS,
-    SEMICOLON,
-    SLASH,
-    STAR,
+    LeftParen,
+    RightParen,
+    LeftBrace,
+    RightBrace,
+    Comma,
+    Dot,
+    Minus,
+    Plus,
+    Semicolon,
+    Slash,
+    Star,
 
     // One or two character tokens.
-    BANG,
-    BANG_EQUAL,
-    EQUAL,
-    EQUAL_EQUAL,
-    GREATER,
-    GREATER_EQUAL,
-    LESS,
-    LESS_EQUAL,
+    Bang,
+    BangEqual,
+    Equal,
+    EqualEqual,
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
 
     // Literals.
-    IDENTIFIER,
-    STRING,
-    NUMBER,
+    Identifier,
+    String,
+    Number,
 
     // Keywords.
-    AND,
-    CLASS,
-    ELSE,
-    FALSE,
-    FUN,
-    FOR,
-    IF,
-    NIL,
-    OR,
-    PRINT,
-    RETURN,
-    SUPER,
-    THIS,
-    TRUE,
-    VAR,
-    WHILE,
+    And,
+    Class,
+    Else,
+    False,
+    Fun,
+    For,
+    If,
+    Nil,
+    Or,
+    Print,
+    Return,
+    Super,
+    This,
+    True,
+    Var,
+    While,
     EOF,
 }
 
@@ -79,27 +79,103 @@ impl<'a> Scanner<'a> {
     }
 
     pub fn scanTokens(&mut self) -> Result<()> {
-        macro_rules! push {
+        macro_rules! push_token {
             ($v: path, $c: ident) => {
                 self.tokens
                     .push(Token::new($v, $c.to_string(), (), self.line))
             };
+            ($v: path, $c: literal) => {
+                self.tokens
+                    .push(Token::new($v, String::from($c), (), self.line))
+            };
         }
 
         type TT = TokenType;
-        let mut chrs = self.source.chars();
+        let mut chrs = self.source.chars().peekable();
         while let Some(c) = chrs.next() {
             match c {
-                '(' => push!(TT::LEFT_PAREN, c),
-                ')' => push!(TT::RIGHT_PAREN, c),
-                '{' => push!(TT::LEFT_BRACE, c),
-                '}' => push!(TT::RIGHT_BRACE, c),
-                ',' => push!(TT::COMMA, c),
-                '.' => push!(TT::DOT, c),
-                '-' => push!(TT::MINUS, c),
-                '+' => push!(TT::PLUS, c),
-                ';' => push!(TT::SEMICOLON, c),
-                '*' => push!(TT::STAR, c),
+                '(' => push_token!(TT::LeftParen, c),
+                ')' => push_token!(TT::RightParen, c),
+                '{' => push_token!(TT::LeftBrace, c),
+                '}' => push_token!(TT::RightBrace, c),
+                ',' => push_token!(TT::Comma, c),
+                '.' => push_token!(TT::Dot, c),
+                '-' => push_token!(TT::Minus, c),
+                '+' => push_token!(TT::Plus, c),
+                ';' => push_token!(TT::Semicolon, c),
+                '*' => push_token!(TT::Star, c),
+                '!' => {
+                    if let Some(&c1) = chrs.peek() {
+                        if c1 == '=' {
+                            push_token!(TT::BangEqual, "!=");
+                            chrs.next();
+                        } else {
+                            push_token!(TT::Bang, c);
+                        }
+                    }
+                }
+                '=' => {
+                    if let Some(&c1) = chrs.peek() {
+                        if c1 == '=' {
+                            push_token!(TT::EqualEqual, "==");
+                            chrs.next();
+                        } else {
+                            push_token!(TT::Equal, c);
+                        }
+                    }
+                }
+                '<' => {
+                    if let Some(&c1) = chrs.peek() {
+                        if c1 == '=' {
+                            push_token!(TT::LessEqual, "<=");
+                            chrs.next();
+                        } else {
+                            push_token!(TT::Less, c);
+                        }
+                    }
+                }
+                '>' => {
+                    if let Some(&c1) = chrs.peek() {
+                        if c1 == '=' {
+                            push_token!(TT::GreaterEqual, ">=");
+                            chrs.next();
+                        } else {
+                            push_token!(TT::Greater, c);
+                        }
+                    }
+                }
+                '/' => {
+                    if let Some(&c1) = chrs.peek() {
+                        if c1 == '/' {
+                            let _ = chrs.by_ref().take_while(|&c| c != '\n');
+                        } else {
+                            push_token!(TT::Slash, '/');
+                        }
+                    }
+                }
+                ' ' => continue,
+                '\r' => continue,
+                '\t' => continue,
+                '\n' => self.line += 1,
+                '"' => {
+                    chrs.next();
+                    let lexeme: String = chrs
+                        .by_ref()
+                        .inspect(|&c| {
+                            if c == '\n' {
+                                self.line += 1
+                            }
+                        })
+                        .take_while(|&c| c != '"')
+                        .collect();
+
+                    if let None = chrs.next() {
+                        return Err(anyhow!("Unterminated string."));
+                    }
+
+                    chrs.next();
+                    push_token!(TT::String, lexeme);
+                }
                 _ => return Err(anyhow!("Unexpected character.")),
             }
         }
