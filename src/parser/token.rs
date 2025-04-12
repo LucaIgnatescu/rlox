@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use derive_more::{Constructor, Display};
 
 #[derive(Display, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 enum TokenType {
     // Single-character tokens.
     LeftParen,
@@ -51,13 +52,15 @@ enum TokenType {
     EOF,
 }
 
-#[derive(Debug, Display, PartialEq, Eq)]
+#[derive(Debug, Display, PartialEq)]
+#[allow(dead_code)]
 enum Literal {
     Null,
     Text(String),
+    Number(f32), // NOTE: it would prob be good to have multiple number types
 }
 
-#[derive(Debug, Display, Constructor, PartialEq, Eq)]
+#[derive(Debug, Display, Constructor, PartialEq)]
 #[display("{} {} {:?}", token_type, lexeme, literal)]
 pub struct Token {
     token_type: TokenType,
@@ -66,74 +69,78 @@ pub struct Token {
     line: u32,
 }
 
+impl Token {
+    fn new_simple(token_type: TokenType, text: impl ToString, line: u32) -> Self {
+        Self::new(token_type, text.to_string(), Literal::Null, line)
+    }
+
+    fn new_number(text: &str, line: u32) -> Result<Self> {
+        let number: f32 = text.parse().map_err(|_| anyhow!("Invalid number."))?;
+        Ok(Self::new(
+            TokenType::Number,
+            text.to_string(),
+            Literal::Number(number),
+            line,
+        ))
+    }
+}
+
 pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
     let mut tokens: Vec<Token> = vec![];
     let mut line = 0;
-
-    macro_rules! push_token {
-        ($v: path, $c: ident) => {
-            tokens.push(Token::new($v, $c.to_string(), Literal::Null, line))
-        };
-        ($v: path, $c: literal) => {
-            tokens.push(Token::new($v, String::from($c), Literal::Null, line))
-        };
-        ($token_type: path, $text: ident, $lexeme: ident) => {
-            tokens.push(Token::new($token_type, $text, Literal::Text($lexeme), line))
-        };
-    }
 
     type TT = TokenType;
     let mut chrs = source.chars().peekable();
 
     while let Some(c) = chrs.next() {
         match c {
-            '(' => push_token!(TT::LeftParen, c),
-            ')' => push_token!(TT::RightParen, c),
-            '{' => push_token!(TT::LeftBrace, c),
-            '}' => push_token!(TT::RightBrace, c),
-            ',' => push_token!(TT::Comma, c),
-            '.' => push_token!(TT::Dot, c),
-            '-' => push_token!(TT::Minus, c),
-            '+' => push_token!(TT::Plus, c),
-            ';' => push_token!(TT::Semicolon, c),
-            '*' => push_token!(TT::Star, c),
+            '(' => tokens.push(Token::new_simple(TT::LeftParen, c, line)),
+            ')' => tokens.push(Token::new_simple(TT::RightParen, c, line)),
+            '{' => tokens.push(Token::new_simple(TT::LeftBrace, c, line)),
+            '}' => tokens.push(Token::new_simple(TT::RightBrace, c, line)),
+            ',' => tokens.push(Token::new_simple(TT::Comma, c, line)),
+            '.' => tokens.push(Token::new_simple(TT::Dot, c, line)),
+            '-' => tokens.push(Token::new_simple(TT::Minus, c, line)),
+            '+' => tokens.push(Token::new_simple(TT::Plus, c, line)),
+            ';' => tokens.push(Token::new_simple(TT::Semicolon, c, line)),
+            '*' => tokens.push(Token::new_simple(TT::Star, c, line)),
             '!' => {
                 if let Some(&c1) = chrs.peek() {
                     if c1 == '=' {
-                        push_token!(TT::BangEqual, "!=");
+                        tokens.push(Token::new_simple(TT::BangEqual, "!=", line));
                         chrs.next();
                     } else {
-                        push_token!(TT::Bang, c);
+                        tokens.push(Token::new_simple(TT::Bang, "!", line));
                     }
                 }
             }
             '=' => {
                 if let Some(&c1) = chrs.peek() {
                     if c1 == '=' {
-                        push_token!(TT::EqualEqual, "==");
+                        tokens.push(Token::new_simple(TT::EqualEqual, "==", line));
                         chrs.next();
                     } else {
-                        push_token!(TT::Equal, c);
+                        tokens.push(Token::new_simple(TT::Equal, c, line));
                     }
                 }
             }
             '<' => {
                 if let Some(&c1) = chrs.peek() {
                     if c1 == '=' {
-                        push_token!(TT::LessEqual, "<=");
+                        tokens.push(Token::new_simple(TT::LessEqual, "<=", line));
                         chrs.next();
                     } else {
-                        push_token!(TT::Less, c);
+                        tokens.push(Token::new_simple(TT::Less, c, line));
                     }
                 }
             }
             '>' => {
                 if let Some(&c1) = chrs.peek() {
                     if c1 == '=' {
-                        push_token!(TT::GreaterEqual, ">=");
+                        tokens.push(Token::new_simple(TT::GreaterEqual, ">=", line));
                         chrs.next();
                     } else {
-                        push_token!(TT::Greater, c);
+                        tokens.push(Token::new_simple(TT::Greater, c, line));
                     }
                 }
             }
@@ -142,7 +149,7 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
                     if c1 == '/' {
                         let _ = chrs.by_ref().take_while(|&c| c != '\n');
                     } else {
-                        push_token!(TT::Slash, '/');
+                        tokens.push(Token::new_simple(TT::Slash, '/', line));
                     }
                 }
             }
@@ -151,7 +158,7 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
             '\t' => continue,
             '\n' => line += 1,
             '"' => {
-                let lexeme: String = chrs
+                let literal: String = chrs
                     .by_ref()
                     .inspect(|&c| {
                         if c == '\n' {
@@ -165,18 +172,43 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
                     return Err(anyhow!("Unterminated string."));
                 }
 
-                let text = format!("\"{}\"", lexeme);
+                let lexeme = format!("\"{}\"", literal);
 
                 chrs.next();
-                push_token!(TT::String, text, lexeme);
+                tokens.push(Token::new(TT::String, lexeme, Literal::Text(literal), line));
             }
             _ => {
                 if c.is_digit(10) {
                     let decimal: String = std::iter::once(c)
-                        .chain(chrs.take_while(|&c| c != '.' && c.is_digit(10)))
+                        .chain(chrs.by_ref().take_while(|&c| c != '.' && c.is_digit(10)))
                         .collect();
+
+                    match chrs.peek() {
+                        None => {
+                            tokens.push(Token::new_number(&decimal, line)?);
+                            continue;
+                        }
+                        Some(&c) => {
+                            if c != '.' {
+                                tokens.push(Token::new_number(&decimal, line)?);
+                                continue;
+                            }
+                            chrs.next();
+                            let fractional: String =
+                                chrs.by_ref().take_while(|&c| c.is_digit(10)).collect();
+                            if fractional.len() == 0 {
+                                return Err(anyhow!(
+                                    "Invalid number: {}. is not a valid number",
+                                    decimal
+                                ));
+                            }
+                            let text = format!("{}.{}", decimal, fractional);
+                            tokens.push(Token::new_number(&text, line)?);
+                        }
+                    }
+                } else {
+                    return Err(anyhow!("Unexpected character."));
                 }
-                return Err(anyhow!("Unexpected character."));
             }
         }
     }
