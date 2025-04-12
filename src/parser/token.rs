@@ -161,12 +161,12 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
             '"' => {
                 let literal: String = chrs
                     .by_ref()
+                    .peeking_take_while(|&c| c != '"')
                     .inspect(|&c| {
                         if c == '\n' {
                             line += 1
                         }
                     })
-                    .take_while(|&c| c != '"')
                     .collect();
 
                 if let None = chrs.next() {
@@ -175,18 +175,15 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
 
                 let lexeme = format!("\"{}\"", literal);
 
-                // BUG: chrs.next();
                 tokens.push(Token::new(TT::String, lexeme, Literal::Text(literal), line));
             }
             _ => {
-                println!("{} default branch", c);
                 if c.is_digit(10) {
                     let decimal: String = std::iter::once(c)
                         .chain(
                             chrs.by_ref()
                                 .peeking_take_while(|&c| c != '.' && c.is_digit(10)),
                         )
-                        .inspect(|c| println!("{:?}", c))
                         .collect();
                     match chrs.peek() {
                         None => {
@@ -227,7 +224,7 @@ mod tests {
 
     #[test]
     fn test_string() {
-        let input = " \"abc\"  ";
+        let input = " \"abc\"";
         let tokens = scan_tokens(input).unwrap();
         let token = Token::new(
             TokenType::String,
@@ -235,7 +232,6 @@ mod tests {
             Literal::Text(String::from("abc")),
             0,
         );
-        println!("{:?}", token);
         assert_eq!(tokens.len(), 1);
         assert_eq!(tokens[0], token);
     }
