@@ -250,6 +250,13 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
         }
     }
 
+    tokens.push(Token::new(
+        TokenType::EOF,
+        "".to_string(),
+        Literal::Null,
+        line,
+    ));
+
     Ok(tokens)
 }
 
@@ -267,7 +274,7 @@ mod tests {
             Literal::Text(String::from("abc")),
             0,
         );
-        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.len(), 2);
         assert_eq!(tokens[0], token);
     }
 
@@ -284,6 +291,7 @@ mod tests {
             Token::new(TokenType::LessEqual, String::from("<="), Literal::Null, 1),
             Token::new(TokenType::Less, String::from("<"), Literal::Null, 1),
             Token::new(TokenType::Dot, String::from("."), Literal::Null, 1),
+            Token::new(TokenType::EOF, "".to_string(), Literal::Null, 1),
         ];
         let tokens = scan_tokens(input).unwrap();
         assert_eq!(want, tokens);
@@ -305,6 +313,7 @@ mod tests {
                 Literal::Number(123.23),
                 0,
             ),
+            Token::new(TokenType::EOF, "".to_string(), Literal::Null, 0),
         ];
         let tokens = scan_tokens(input).unwrap();
         assert_eq!(want, tokens);
@@ -319,6 +328,7 @@ mod tests {
             Token::new(TokenType::True, "true".to_string(), Literal::Null, 0),
             Token::new(TokenType::Identifier, "xy_zt".to_string(), Literal::Null, 0),
             Token::new(TokenType::Identifier, "__x1".to_string(), Literal::Null, 1),
+            Token::new(TokenType::EOF, "".to_string(), Literal::Null, 1),
         ];
         let tokens = scan_tokens(input).unwrap();
         assert_eq!(want, tokens);
