@@ -53,6 +53,30 @@ enum TokenType {
     EOF,
 }
 
+impl TokenType {
+    fn from_keyword(identifier: &str) -> Self {
+        match identifier {
+            "and" => Self::And,
+            "class" => Self::Class,
+            "else" => Self::Else,
+            "false" => Self::False,
+            "for" => Self::For,
+            "fun" => Self::Fun,
+            "if" => Self::If,
+            "nil" => Self::Nil,
+            "or" => Self::Or,
+            "print" => Self::Print,
+            "return" => Self::Return,
+            "super" => Self::Super,
+            "this" => Self::This,
+            "true" => Self::True,
+            "var" => Self::Var,
+            "while" => Self::While,
+            _ => Self::Identifier,
+        }
+    }
+}
+
 #[derive(Debug, Display, PartialEq)]
 #[allow(dead_code)]
 enum Literal {
@@ -196,8 +220,10 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
                                 continue;
                             }
                             chrs.next();
-                            let fractional: String =
-                                chrs.by_ref().take_while(|&c| c.is_digit(10)).collect();
+                            let fractional: String = chrs
+                                .by_ref()
+                                .peeking_take_while(|&c| c.is_digit(10))
+                                .collect();
                             if fractional.len() == 0 {
                                 return Err(anyhow!(
                                     "Invalid number: {}. is not a valid number",
@@ -208,6 +234,15 @@ pub fn scan_tokens(source: &str) -> Result<Vec<Token>> {
                             tokens.push(Token::new_number(&text, line)?);
                         }
                     }
+                } else if c.is_alphabetic() || c == '_' {
+                    let keyword: String = std::iter::once(c)
+                        .chain(
+                            chrs.by_ref()
+                                .peeking_take_while(|&c| c.is_alphanumeric() || c == '_'),
+                        )
+                        .collect();
+                    let token_type = TokenType::from_keyword(&keyword);
+                    tokens.push(Token::new_simple(token_type, keyword, line));
                 } else {
                     return Err(anyhow!("Unexpected character."));
                 }
@@ -270,6 +305,20 @@ mod tests {
                 Literal::Number(123.23),
                 0,
             ),
+        ];
+        let tokens = scan_tokens(input).unwrap();
+        assert_eq!(want, tokens);
+    }
+
+    #[test]
+    fn test_identifier() {
+        let input = "while if true xy_zt\n__x1";
+        let want: Vec<Token> = vec![
+            Token::new(TokenType::While, "while".to_string(), Literal::Null, 0),
+            Token::new(TokenType::If, "if".to_string(), Literal::Null, 0),
+            Token::new(TokenType::True, "true".to_string(), Literal::Null, 0),
+            Token::new(TokenType::Identifier, "xy_zt".to_string(), Literal::Null, 0),
+            Token::new(TokenType::Identifier, "__x1".to_string(), Literal::Null, 1),
         ];
         let tokens = scan_tokens(input).unwrap();
         assert_eq!(want, tokens);
