@@ -1,7 +1,8 @@
 use anyhow::Result;
 use std::env;
 
-mod parser;
+mod ast;
+mod scanner;
 
 fn main() -> Result<()> {
     let args: Vec<String> = env::args().collect();
