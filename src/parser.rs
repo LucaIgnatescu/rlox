@@ -49,8 +49,7 @@ where
     loop {
         let op = match it.peek().map(|t| &t.token_type) {
             Some(TokenType::EqualEqual) => BinOp::EqualEqual,
-            Some(TokenType::LessEqual) => BinOp::LessEqual,
-            Some(TokenType::EOF) => break,
+            Some(TokenType::BangEqual) => BinOp::BangEqual,
             _ => break,
         };
         it.next();
@@ -75,7 +74,6 @@ where
             Some(TokenType::GreaterEqual) => BinOp::GreaterEqual,
             Some(TokenType::Less) => BinOp::Less,
             Some(TokenType::LessEqual) => BinOp::LessEqual,
-            Some(TokenType::EOF) => break,
             _ => break,
         };
         it.next();
@@ -98,7 +96,6 @@ where
         let op = match it.peek().map(|t| &t.token_type) {
             Some(TokenType::Minus) => BinOp::Minus,
             Some(TokenType::Plus) => BinOp::Plus,
-            Some(TokenType::EOF) => break,
             _ => break,
         };
         it.next();
@@ -121,7 +118,6 @@ where
         let op = match it.peek().map(|t| &t.token_type) {
             Some(TokenType::Slash) => BinOp::Slash,
             Some(TokenType::Star) => BinOp::Star,
-            Some(TokenType::EOF) => break,
             _ => break,
         };
         it.next();
@@ -157,7 +153,7 @@ fn parse_primary<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
 where
     I: Iterator<Item = &'a Token>,
 {
-    let t = it.peek().ok_or_else(|| anyhow!("Expected expression."))?;
+    let t = it.next().ok_or_else(|| anyhow!("Expected expression."))?;
     let kind = match t.token_type {
         TokenType::True => LitKind::True,
         TokenType::False => LitKind::False,
@@ -165,7 +161,6 @@ where
         TokenType::Number => LitKind::try_from(t.literal.clone())?,
         TokenType::String => LitKind::try_from(t.literal.clone())?,
         TokenType::LeftParen => {
-            it.next();
             let expr = parse_expr(it)?;
             if let Some(TokenType::RightParen) = it.peek().map(|t| t.token_type) {
                 it.next();
@@ -173,8 +168,7 @@ where
             }
             return Err(anyhow!("Expected closing )"));
         }
-        _ => return Err(anyhow!("Expected expression.")),
+        TokenType::EOF | _ => return Err(anyhow!("Expected expression.")),
     };
-    it.next();
     Ok(Expr::new(ExprKind::Literal(kind)))
 }
