@@ -40,7 +40,7 @@ impl TryFrom<Literal> for LitKind {
 
     fn try_from(value: Literal) -> Result<Self, Self::Error> {
         match value {
-            Literal::Null => Err(anyhow!("Cannot create LitKind from Null Literal")),
+            Literal::Null => Err(anyhow!("Cannot creat LitKind from Null Literal")),
             Literal::Text(t) => Ok(LitKind::String(t)),
             Literal::Number(n) => Ok(LitKind::Number(n)),
         }

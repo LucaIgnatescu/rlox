@@ -1,11 +1,10 @@
 use std::iter::Peekable;
+use thiserror::Error;
 
 use crate::{
     ast::{BinOp, Expr, ExprKind, LitKind, UnOp},
     scanner::{Token, TokenType},
 };
-
-use anyhow::{anyhow, Result};
 
 /*
 *    expression     → equality ;
@@ -19,6 +18,24 @@ use anyhow::{anyhow, Result};
 *                   | "(" expression ")" ;
 */
 
+#[derive(Error, Debug)]
+#[error("Parse error at line {line}, \"{lexeme}\": {message}")]
+pub struct ParserError {
+    line: u32,
+    lexeme: String,
+    message: String,
+}
+
+impl ParserError {
+    fn new(t: &Token, message: &str) -> Self {
+        Self {
+            line: t.line,
+            lexeme: t.lexeme.clone(),
+            message: message.to_string(),
+        }
+    }
+}
+
 /*
 * NOTE: Error handling:
 * When we can't parse, we return an error, which we propagate up (?)
@@ -27,13 +44,13 @@ use anyhow::{anyhow, Result};
 * through tokens until we can start parsing a new statement.
 */
 
-pub fn parse_tokens(tokens: &[Token]) -> Result<Expr> {
+pub fn parse_tokens(tokens: &[Token]) -> Result<Expr, ParserError> {
     let mut it = tokens.iter().peekable();
     parse_expr(&mut it)
 }
 
 // expression → equality ;
-fn parse_expr<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_expr<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -41,7 +58,7 @@ where
 }
 
 // equality → comparison ( ( "!=" | "==" ) comparison )* ;
-fn parse_equality<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_equality<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -63,7 +80,7 @@ where
 }
 
 // comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-fn parse_comparison<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_comparison<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -87,7 +104,7 @@ where
 }
 
 // term → factor ( ( "-" | "+" ) factor )* ;
-fn parse_term<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_term<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -109,7 +126,7 @@ where
 }
 
 // factor → unary ( ( "/" | "*" ) unary )* ;
-fn parse_factor<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_factor<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -131,7 +148,7 @@ where
 }
 
 // unary → ( "!" | "-" ) unary | primary ;
-fn parse_unary<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_unary<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -149,26 +166,29 @@ where
 }
 
 // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-fn parse_primary<'a, I>(it: &mut Peekable<I>) -> Result<Expr>
+fn parse_primary<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
 where
     I: Iterator<Item = &'a Token>,
 {
-    let t = it.next().ok_or_else(|| anyhow!("Expected expression."))?;
+    let t = it
+        .next()
+        .expect("There should always be a final EOF token.");
     let kind = match t.token_type {
         TokenType::True => LitKind::True,
         TokenType::False => LitKind::False,
         TokenType::Nil => LitKind::Nil,
-        TokenType::Number => LitKind::try_from(t.literal.clone())?,
-        TokenType::String => LitKind::try_from(t.literal.clone())?,
+        TokenType::Number => LitKind::try_from(t.literal.clone()).expect("Token literal mismatch"),
+        TokenType::String => LitKind::try_from(t.literal.clone()).expect("Token literal mismatch"),
         TokenType::LeftParen => {
             let expr = parse_expr(it)?;
             if let Some(TokenType::RightParen) = it.peek().map(|t| t.token_type) {
                 it.next();
                 return Ok(Expr::new(ExprKind::Grouping(Box::new(expr))));
             }
-            return Err(anyhow!("Expected closing )"));
+            return Err(ParserError::new(t, "Expected closing )"));
         }
-        TokenType::EOF | _ => return Err(anyhow!("Expected expression.")),
+        TokenType::EOF => return Err(ParserError::new(t, "Expected expression")),
+        _ => panic!("There shoud always be a final EOF token"),
     };
     Ok(Expr::new(ExprKind::Literal(kind)))
 }
