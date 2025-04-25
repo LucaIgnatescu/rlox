@@ -2,9 +2,9 @@ use anyhow::{anyhow, Result};
 use derive_more::{Constructor, Display};
 use itertools::Itertools;
 
-#[derive(Display, Debug, PartialEq, Eq)]
+#[derive(Display, Debug, PartialEq, Eq, Clone, Copy)]
 #[allow(dead_code)]
-enum TokenType {
+pub enum TokenType {
     // Single-character tokens.
     LeftParen,
     RightParen,
@@ -77,29 +77,29 @@ impl TokenType {
     }
 }
 
-#[derive(Debug, Display, PartialEq)]
+#[derive(Debug, Display, PartialEq, Clone)]
 #[allow(dead_code)]
-enum Literal {
+pub enum Literal {
     Null,
     Text(String),
     Number(f32), // NOTE: it would prob be good to have multiple number types
 }
 
-#[derive(Debug, Display, Constructor, PartialEq)]
+#[derive(Debug, Display, Constructor, PartialEq, Clone)]
 #[display("{} {} {:?}", token_type, lexeme, literal)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Literal,
-    line: u32,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: Literal,
+    pub line: u32,
 }
 
 impl Token {
-    fn new_simple(token_type: TokenType, text: impl ToString, line: u32) -> Self {
+    pub fn new_simple(token_type: TokenType, text: impl ToString, line: u32) -> Self {
         Self::new(token_type, text.to_string(), Literal::Null, line)
     }
 
-    fn new_number(text: &str, line: u32) -> Result<Self> {
+    pub fn new_number(text: &str, line: u32) -> Result<Self> {
         let number: f32 = text.parse().map_err(|_| anyhow!("Invalid number."))?;
         Ok(Self::new(
             TokenType::Number,

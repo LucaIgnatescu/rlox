@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::env;
 
 mod ast;
+mod parser;
 mod scanner;
 
 fn main() -> Result<()> {
