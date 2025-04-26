@@ -1,5 +1,4 @@
-use std::error::Error;
-
+use anyhow::anyhow;
 use derive_more::Constructor;
 
 use crate::scanner::Literal;
@@ -27,12 +26,41 @@ pub enum BinOp {
 }
 
 #[allow(dead_code)]
+#[derive(Default)]
 pub enum LitKind {
     Number(f32),
     String(String),
-    True,
-    False,
+    Boolean(bool),
+    #[default]
     Nil,
+}
+
+// impl Default for LitKind {
+//     fn default() -> Self {
+//         match  {
+//             Self::Number(n) => Self::Number(f32::default()),
+//             Self::String(s) => Self::String(String::default()),
+//             Self::Boolean(b) => Self::Boolean(bool::default()),
+//             Self::Nil => Self::Nil,
+//         }
+//     }
+// }
+
+#[allow(dead_code)]
+pub enum ExprKind {
+    Literal(LitKind),
+    Unary(Box<Expr>, UnOp),
+    Binary(Box<Expr>, Box<Expr>, BinOp),
+    Grouping(Box<Expr>),
+}
+
+/* NOTE: This will get more fields for diagnostics
+* Note that the key here is that an expr is just one type of node in AST,
+* which is why this representation works.
+*/
+#[derive(Constructor)]
+pub struct Expr {
+    pub kind: ExprKind,
 }
 
 impl TryFrom<Literal> for LitKind {
@@ -47,25 +75,6 @@ impl TryFrom<Literal> for LitKind {
     }
 }
 
-// NOTE: might need to mvoe to a exprKind + span structure if I decide to store tokens
-#[allow(dead_code)]
-pub enum ExprKind {
-    Literal(LitKind),
-    Unary(Box<Expr>, UnOp),
-    Binary(Box<Expr>, Box<Expr>, BinOp),
-    Grouping(Box<Expr>),
-}
-
-/* NOTE: This will get more fields for diagnostics
-* Note that the key here is that an expr is just one type of node in AST,
-* which is why this representation works.
-*
-*/
-#[derive(Constructor)]
-pub struct Expr {
-    pub kind: ExprKind,
-}
-
 pub trait Visitor: Sized {
     type Result: Default;
     fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
@@ -73,7 +82,7 @@ pub trait Visitor: Sized {
     }
 }
 
-fn walk_expr<V>(v: &mut V, expr: &Expr) -> V::Result
+pub fn walk_expr<V>(v: &mut V, expr: &Expr) -> V::Result
 where
     V: Visitor,
 {

@@ -46,6 +46,7 @@ impl ParserError {
 
 pub fn parse_tokens(tokens: &[Token]) -> Result<Expr, ParserError> {
     let mut it = tokens.iter().peekable();
+    // TODO: handle and synchronize
     parse_expr(&mut it)
 }
 
@@ -174,8 +175,8 @@ where
         .next()
         .expect("There should always be a final EOF token.");
     let kind = match t.token_type {
-        TokenType::True => LitKind::True,
-        TokenType::False => LitKind::False,
+        TokenType::True => LitKind::Boolean(true),
+        TokenType::False => LitKind::Boolean(false),
         TokenType::Nil => LitKind::Nil,
         TokenType::Number => LitKind::try_from(t.literal.clone()).expect("Token literal mismatch"),
         TokenType::String => LitKind::try_from(t.literal.clone()).expect("Token literal mismatch"),
@@ -187,8 +188,7 @@ where
             }
             return Err(ParserError::new(t, "Expected closing )"));
         }
-        TokenType::EOF => return Err(ParserError::new(t, "Expected expression")),
-        _ => panic!("There shoud always be a final EOF token"),
+        TokenType::EOF | _ => return Err(ParserError::new(t, "Expected expression")),
     };
     Ok(Expr::new(ExprKind::Literal(kind)))
 }

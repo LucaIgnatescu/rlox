@@ -2,6 +2,7 @@ use anyhow::Result;
 use std::env;
 
 mod ast;
+mod interpreter;
 mod parser;
 mod scanner;
 
