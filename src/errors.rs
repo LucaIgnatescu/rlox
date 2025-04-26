@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::scanner::Token;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Default)]
 #[error("line {line}, \"{lexeme}\": {message}")]
 pub struct GenericError {
     line: u32,

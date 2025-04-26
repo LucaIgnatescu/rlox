@@ -1,11 +1,25 @@
-use crate::ast::{Expr, LitKind, Visitor};
+use std::mem::discriminant;
 
-struct Interpreter {}
+use crate::{
+    ast::{Expr, ExprKind, LitKind, Visitor},
+    errors::LoxError,
+};
+
+pub struct Interpreter {
+    pub result: Result<LitKind, LoxError>,
+}
 
 impl Visitor for Interpreter {
-    type Result = LitKind;
-
-    fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
-        crate::ast::walk_expr(self, expr)
+    fn visit_expr(&mut self, expr: &Expr) {
+        match &expr.kind {
+            ExprKind::Binary(l, r, op) => {
+                let left = self.visit_expr(l);
+                let right = self.visit_expr(r);
+                if discriminant(&left) != discriminant(&right) {}
+            }
+            ExprKind::Unary(l, op) => {},
+            ExprKind::Grouping(ex) => ,
+            ExprKind::Literal(lit) => ,
+        }
     }
 }

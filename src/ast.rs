@@ -1,7 +1,7 @@
 use anyhow::anyhow;
 use derive_more::Constructor;
 
-use crate::scanner::Literal;
+use crate::scanner::{Literal, Token};
 
 #[allow(dead_code)]
 pub enum UnOp {
@@ -61,6 +61,7 @@ pub enum ExprKind {
 #[derive(Constructor)]
 pub struct Expr {
     pub kind: ExprKind,
+    pub token: Token,
 }
 
 impl TryFrom<Literal> for LitKind {
@@ -76,13 +77,12 @@ impl TryFrom<Literal> for LitKind {
 }
 
 pub trait Visitor: Sized {
-    type Result: Default;
-    fn visit_expr(&mut self, expr: &Expr) -> Self::Result {
+    fn visit_expr(&mut self, expr: &Expr) -> () {
         walk_expr(self, expr)
     }
 }
 
-pub fn walk_expr<V>(v: &mut V, expr: &Expr) -> V::Result
+pub fn walk_expr<V>(v: &mut V, expr: &Expr) -> ()
 where
     V: Visitor,
 {
@@ -99,7 +99,6 @@ where
         }
         _ => {}
     }
-    V::Result::default()
 }
 
 // pub struct PrettyPrinter {}

@@ -1,6 +1,4 @@
-use derive_more::Constructor;
 use std::iter::Peekable;
-use thiserror::Error;
 
 use crate::{
     ast::{BinOp, Expr, ExprKind, LitKind, UnOp},
@@ -28,14 +26,14 @@ use crate::{
 * through tokens until we can start parsing a new statement.
 */
 
-pub fn parse_tokens(tokens: &[Token]) -> Result<Expr, ParserError> {
+pub fn parse_tokens(tokens: &[Token]) -> Result<Expr, LoxError> {
     let mut it = tokens.iter().peekable();
     // TODO: handle and synchronize
     parse_expr(&mut it)
 }
 
 // expression → equality ;
-fn parse_expr<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_expr<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -43,7 +41,7 @@ where
 }
 
 // equality → comparison ( ( "!=" | "==" ) comparison )* ;
-fn parse_equality<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_equality<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -54,18 +52,17 @@ where
             Some(TokenType::BangEqual) => BinOp::BangEqual,
             _ => break,
         };
-        it.next();
-        left = Expr::new(ExprKind::Binary(
-            Box::new(left),
-            Box::new(parse_comparison(it)?),
-            op,
-        ));
+        let token = it.next().expect("we just checked above");
+        left = Expr::new(
+            ExprKind::Binary(Box::new(left), Box::new(parse_comparison(it)?), op),
+            token.clone(),
+        );
     }
     Ok(left)
 }
 
 // comparison → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
-fn parse_comparison<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_comparison<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -79,17 +76,17 @@ where
             _ => break,
         };
         it.next();
-        left = Expr::new(ExprKind::Binary(
-            Box::new(left),
-            Box::new(parse_comparison(it)?),
-            op,
-        ));
+        let token = it.next().expect("we just checked above");
+        left = Expr::new(
+            ExprKind::Binary(Box::new(left), Box::new(parse_comparison(it)?), op),
+            token.clone(),
+        );
     }
     Ok(left)
 }
 
 // term → factor ( ( "-" | "+" ) factor )* ;
-fn parse_term<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_term<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -100,18 +97,17 @@ where
             Some(TokenType::Plus) => BinOp::Plus,
             _ => break,
         };
-        it.next();
-        left = Expr::new(ExprKind::Binary(
-            Box::new(left),
-            Box::new(parse_factor(it)?),
-            op,
-        ));
+        let token = it.next().expect("we just checked above");
+        left = Expr::new(
+            ExprKind::Binary(Box::new(left), Box::new(parse_factor(it)?), op),
+            token.clone(),
+        );
     }
     Ok(left)
 }
 
 // factor → unary ( ( "/" | "*" ) unary )* ;
-fn parse_factor<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_factor<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -122,36 +118,41 @@ where
             Some(TokenType::Star) => BinOp::Star,
             _ => break,
         };
-        it.next();
-        left = Expr::new(ExprKind::Binary(
-            Box::new(left),
-            Box::new(parse_unary(it)?),
-            op,
-        ));
+        let token = it.next().expect("we just checked above");
+        left = Expr::new(
+            ExprKind::Binary(Box::new(left), Box::new(parse_unary(it)?), op),
+            token.clone(),
+        );
     }
     Ok(left)
 }
 
 // unary → ( "!" | "-" ) unary | primary ;
-fn parse_unary<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_unary<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
     Ok(match it.peek().map(|t| &t.token_type) {
         Some(TokenType::Bang) => {
-            it.next();
-            Expr::new(ExprKind::Unary(Box::new(parse_unary(it)?), UnOp::Bang))
+            let token = it.next().expect("we just checked above");
+            Expr::new(
+                ExprKind::Unary(Box::new(parse_unary(it)?), UnOp::Bang),
+                token.clone(),
+            )
         }
         Some(TokenType::Minus) => {
-            it.next();
-            Expr::new(ExprKind::Unary(Box::new(parse_unary(it)?), UnOp::Minus))
+            let token = it.next().expect("we just checked above");
+            Expr::new(
+                ExprKind::Unary(Box::new(parse_unary(it)?), UnOp::Minus),
+                token.clone(),
+            )
         }
         _ => parse_primary(it)?,
     })
 }
 
 // primary → NUMBER | STRING | "true" | "false" | "nil" | "(" expression ")" ;
-fn parse_primary<'a, I>(it: &mut Peekable<I>) -> Result<Expr, ParserError>
+fn parse_primary<'a, I>(it: &mut Peekable<I>) -> Result<Expr, LoxError>
 where
     I: Iterator<Item = &'a Token>,
 {
@@ -167,8 +168,8 @@ where
         TokenType::LeftParen => {
             let expr = parse_expr(it)?;
             if let Some(TokenType::RightParen) = it.peek().map(|t| t.token_type) {
-                it.next();
-                return Ok(Expr::new(ExprKind::Grouping(Box::new(expr))));
+                let token = it.next().expect("we just checked");
+                return Ok(Expr::new(ExprKind::Grouping(Box::new(expr)), token.clone()));
             }
             let err = GenericError::new(t, "Expected closing )");
             return Err(LoxError::ParseError(err));
@@ -178,5 +179,5 @@ where
             return Err(LoxError::ParseError(err));
         }
     };
-    Ok(Expr::new(ExprKind::Literal(kind)))
+    Ok(Expr::new(ExprKind::Literal(kind), t.clone()))
 }
