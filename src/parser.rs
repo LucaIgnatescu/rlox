@@ -1,8 +1,10 @@
+use derive_more::Constructor;
 use std::iter::Peekable;
 use thiserror::Error;
 
 use crate::{
     ast::{BinOp, Expr, ExprKind, LitKind, UnOp},
+    errors::{GenericError, LoxError},
     scanner::{Token, TokenType},
 };
 
@@ -17,24 +19,6 @@ use crate::{
 *    primary        → NUMBER | STRING | "true" | "false" | "nil"
 *                   | "(" expression ")" ;
 */
-
-#[derive(Error, Debug)]
-#[error("Parse error at line {line}, \"{lexeme}\": {message}")]
-pub struct ParserError {
-    line: u32,
-    lexeme: String,
-    message: String,
-}
-
-impl ParserError {
-    fn new(t: &Token, message: &str) -> Self {
-        Self {
-            line: t.line,
-            lexeme: t.lexeme.clone(),
-            message: message.to_string(),
-        }
-    }
-}
 
 /*
 * NOTE: Error handling:
@@ -186,9 +170,13 @@ where
                 it.next();
                 return Ok(Expr::new(ExprKind::Grouping(Box::new(expr))));
             }
-            return Err(ParserError::new(t, "Expected closing )"));
+            let err = GenericError::new(t, "Expected closing )");
+            return Err(LoxError::ParseError(err));
         }
-        TokenType::EOF | _ => return Err(ParserError::new(t, "Expected expression")),
+        TokenType::EOF | _ => {
+            let err = GenericError::new(t, "Expected closing )");
+            return Err(LoxError::ParseError(err));
+        }
     };
     Ok(Expr::new(ExprKind::Literal(kind)))
 }
