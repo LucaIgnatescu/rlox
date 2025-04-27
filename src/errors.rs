@@ -28,3 +28,13 @@ pub enum LoxError {
     #[error("Runtime error: {0}")]
     RuntimeError(GenericError),
 }
+
+impl LoxError {
+    #[inline]
+    pub fn new_runtime(t: &Token, msg: &str) -> Self {
+        Self::RuntimeError(GenericError::new(t, msg))
+    }
+    pub fn new_parse(t: &Token, msg: &str) -> Self {
+        Self::ParseError(GenericError::new(t, msg))
+    }
+}

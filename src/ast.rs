@@ -26,7 +26,7 @@ pub enum BinOp {
 }
 
 #[allow(dead_code)]
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub enum LitKind {
     Number(f32),
     String(String),
@@ -45,6 +45,55 @@ pub enum LitKind {
 //         }
 //     }
 // }
+//
+//
+
+pub trait BinaryEval<T> {
+    fn bin_eval(&self, a: T, b: T) -> Option<T>;
+}
+
+impl BinaryEval<f32> for BinOp {
+    fn bin_eval(&self, a: f32, b: f32) -> Option<f32> {
+        Some(match self {
+            Self::Plus => a + b,
+            Self::Minus => a - b,
+            Self::Star => a * b,
+            Self::Slash => a / b,
+            _ => return None,
+        })
+    }
+}
+
+impl BinaryEval<String> for BinOp {
+    fn bin_eval(&self, a: String, b: String) -> Option<String> {
+        Some(match self {
+            Self::Plus => a + b.as_str(),
+            _ => return None,
+        })
+    }
+}
+
+pub trait UnaryEval<T> {
+    fn unary_eval(&self, a: T) -> Option<T>;
+}
+
+impl UnaryEval<f32> for UnOp {
+    fn unary_eval(&self, a: f32) -> Option<f32> {
+        match self {
+            Self::Minus => Some(-a),
+            Self::Bang => None,
+        }
+    }
+}
+
+impl UnaryEval<bool> for UnOp {
+    fn unary_eval(&self, a: bool) -> Option<bool> {
+        match self {
+            Self::Minus => None,
+            Self::Bang => Some(!a),
+        }
+    }
+}
 
 #[allow(dead_code)]
 pub enum ExprKind {
